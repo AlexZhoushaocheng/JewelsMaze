@@ -11,7 +11,7 @@
 const {ccclass, property} = cc._decorator;
 
 @ccclass
-export default class GameManager extends cc.Component {
+export default class Game extends cc.Component {
 
     // @property(cc.Label)
     // label: cc.Label = null;
@@ -21,9 +21,7 @@ export default class GameManager extends cc.Component {
 
     // LIFE-CYCLE CALLBACKS:
 
-    onLoad () {
-
-    }
+    onLoad () {}
 
     start () {
 
