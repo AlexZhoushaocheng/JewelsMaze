@@ -13,7 +13,7 @@ const {ccclass, property} = cc._decorator;
 
 @ccclass
 export default class GameItem extends cc.Component {
-    itemManager:BoardView
+    _pool:cc.NodePool
     
     onLoad () {
         
@@ -23,34 +23,27 @@ export default class GameItem extends cc.Component {
     }
 
     //node pool 调用get函数时会调用此函数
-    reuse(manager:BoardView){
-        if(!manager){
+    reuse(pool:cc.NodePool){
+        if(!pool){
             return
         }
 
-        this.itemManager = manager
+        this._pool = pool
     }
 
     //node pool 调用put函数时会调用此函数
-    unuse(manager:BoardView){
-        if(!manager){
+    unuse(pool:cc.NodePool){
+        if(!pool){
             return
         }
 
-        this.itemManager = manager
+        //this._pool = pool
     }
 
-    onTouchStart(event:cc.Event){
-
-    }
-
-    onTouchEnd(event:cc.Event){
-
-    }
-
+    //被消除
     onEliminate(){
-        if(this.itemManager){
-            this.itemManager.put(this.node)
+        if(this._pool){
+            this._pool.put(this.node)
         }
     }
     // update (dt) {}

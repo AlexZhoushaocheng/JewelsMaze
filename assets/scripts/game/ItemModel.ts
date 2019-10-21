@@ -1,65 +1,71 @@
 import BoardView from './BoardView';
+import ItemNodePool from './ItemNodePool';
 
-let ItemEnum = {
-    Undefine: { id: 1, src: "", node: null },
-    Purple1: { id: 2, src: "Purple1", node: null },
-    Purple2: { id: 3, src: "Purple2", node: null },
-    Purple3: { id: 4, src: "Purple3", node: null },
-    Blue1: { id: 5, src: "Blue1", node: null },
-    Blue2: { id: 6, src: "Blue2", node: null },
-    Blue3: { id: 7, src: "Blue3", node: null },
-    Yellow1: { id: 8, src: "Yellow1", node: null },
-    Yellow2: { id: 9, src: "Yellow2", node: null },
-    Yellow3: { id: 10, src: "Yellow3", node: null }
+class Data{
+    type:number
+    node:cc.Node
 }
 
 export default class ItemModel {
+    view: BoardView //棋盘
+    rowCount: number
+    colCount: number
+    itemNodePool: ItemNodePool
+    dataTable: Array<Array<Data>> = []
 
     constructor(view: BoardView) {
         this.view = view
 
         this.rowCount = 6
         this.colCount = 7
+
+        this.itemNodePool = ItemNodePool.GetInstance()
     }
 
-    view: BoardView
 
     init() {
         for (let i = 0; i < this.rowCount; i++) {
             this.dataTable.push([])
             for (let j = 0; j < this.colCount; j++) {
-                this.dataTable[i][j] = ItemEnum.Purple1.id
+                let exclude = this.getExclude(i,j)
+                let index = this._createItem(exclude)
+                let node = this.itemNodePool.createItem(index)
+                this.dataTable[i].push(new Data())
+                this.dataTable[i][j].type = index
+                this.dataTable[i][j].node = node
             }
         }
     }
 
-
-    _checkLeft(row: number, col: number): boolean {
-        let ret = false
-        if (col >= 3) {
-            ret = this.dataTable[row][col] == this.dataTable[row][col - 1] && this.dataTable[row][col] == this.dataTable[row][col - 2]
+    //初始化过程中检查改坐标点不该出现的元素（如果出现会引起三个连续的同色）
+    getExclude(row:number,col:number):number[]{
+        let arr:number[] = []
+        if(row>1)
+        {
+            if(this.dataTable[row - 1][col].type == this.dataTable[row - 2][col].type){
+                arr.push(Number(this.dataTable[row - 1][col].type))
+            }
         }
-        return ret
+
+        if(col>1)
+        {
+            if(this.dataTable[row][col - 1].type == this.dataTable[row][col - 2].type){
+                arr.push(Number(this.dataTable[row][col - 1].type))
+            }
+        }
+        return arr;
     }
 
-    _checkUp(row: number, col: number): boolean {
-        let ret = false
-        if (row >= 3) {
-            ret = this.dataTable[row][col] == this.dataTable[row - 1][col] && this.dataTable[row][col] == this.dataTable[row - 2][col]
-        }
-        return ret
-    }
+    //返回ItemEnum的一个索引；exclude 要排除的项
+    _createItem(exclude: number[] = []): number {
+        let arrLen = exclude ? exclude.length : 0
+        let typeCount = this.itemNodePool.GetItemTypeCount()
+        let v = Math.floor(Math.random() * (typeCount - arrLen)) // 
 
-    //返回ItemEnum的一个索引；excpet 要排除的项，ItemEnum中的索引
-    _createItem(excpet: number[]): number {
-        let excpetLen = excpet ? excpet.length : 0
-        let typeCount = Object.keys(ItemEnum).length - 1 //-1 减去未定义类型
-        let v = Math.floor(Math.random() * (typeCount - excpetLen)) + 1 // 
-
-        let item = 1
-        if (excpetLen > 0) {
-            for (let itemIndex = 1; itemIndex <= typeCount; itemIndex++) {
-                if (excpet.indexOf(itemIndex) >= 0) {
+        let item = 0
+        if (arrLen > 0) {
+            for (let itemIndex = 0; itemIndex < typeCount; itemIndex++) {
+                if (exclude.indexOf(itemIndex) >= 0) {
                     continue
                 }
 
@@ -77,10 +83,4 @@ export default class ItemModel {
 
         return item
     }
-
-    //private:
-    rowCount: number
-    colCount: number
-
-    dataTable: Array<Array<number>> = []
 }

@@ -1,6 +1,5 @@
-import GameItem from './GameItem';
 import ItemModel from './ItemModel';
-import { Integer } from '../../../creator';
+import ItemNodePool from './ItemNodePool';
 // Learn TypeScript:
 //  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/typescript.html
 //  - [English] http://www.cocos2d-x.org/docs/creator/manual/en/scripting/typescript.html
@@ -16,8 +15,14 @@ const { ccclass, property } = cc._decorator;
 // 棋盘
 @ccclass
 export default class BoardView extends cc.Component {
-    @property(cc.Prefab)
-    gameItemPrefab: cc.Prefab = null
+    // @property({type:cc.Prefab,displayName:"普通元素1"})
+    // gameItemPrefab: cc.Prefab = null
+    // @property({type:cc.Prefab,displayName:"普通元素2"})
+    // gameItemPrefab2: cc.Prefab = null
+    // @property({type:cc.Prefab,displayName:"普通元素3"})
+    // gameItemPrefab3: cc.Prefab = null
+    // @property({type:cc.Prefab,displayName:"普通元素4"})
+    // gameItemPrefab4: cc.Prefab = null
 
     @property(cc.Node)
     chessBoard: cc.Node = null
@@ -36,31 +41,31 @@ export default class BoardView extends cc.Component {
         this.node.on(cc.Node.EventType.TOUCH_START,this.onTouchStart,this)
         this.node.on(cc.Node.EventType.TOUCH_END,this.onTouchEnd,this)
 
-        this.itemPool = new cc.NodePool("Item")
+        this.itemPool = new cc.NodePool("GameItem")
         this.itemModel = new ItemModel(this)
 
-        
+        //预加载资源
+        ItemNodePool.GetInstance().preLoad(()=>{
+            this.loadDone()
+        })
+    }
 
-        let initCount = 6 * 7
-        for (let i = 0; i < initCount; i++) {
-            this.itemPool.put(cc.instantiate(this.gameItemPrefab))
-        }
-
+    loadDone(){
         this.itemModel.init()
-
         this.show()
     }
 
-    show() {
+    show(){
         let row = 0
         let col = 0
         for (let arr of this.itemModel.dataTable) {
-            for (let id of arr) {
-                let itemNode = this.createItem()
+            for (let itemData of arr) {
+
+                let itemNode = itemData.node
                 this.chessBoard.addChild(itemNode)
 
                 //let pos = cc.v2(itemNode.width/2 -this.chessBoard.width/2,itemNode.height/2-this.chessBoard.height/2).add(cc.v2(col * itemNode.width,row * itemNode.height))
-                let pos = cc.v2(itemNode.width/2,itemNode.height/2).add(cc.v2(col * itemNode.width,row * itemNode.height))
+                let pos = cc.v2(itemNode.width / 2, itemNode.height / 2).add(cc.v2(col * itemNode.width, row * itemNode.height))
                 itemNode.setPosition(pos)
                 col++
             }
@@ -70,24 +75,6 @@ export default class BoardView extends cc.Component {
 
         this.itemWidth = this.chessBoard.children[0].width
         this.itemHeighth = this.chessBoard.children[0].height
-    }
-
-    createItem() {
-        let itemNode: cc.Node = null
-        if (this.itemPool.size() > 0) {
-            itemNode = this.itemPool.get(this)
-        }
-        else {
-            itemNode = cc.instantiate(this.gameItemPrefab)
-            let gameItem = itemNode.getComponent("GameItem") as GameItem
-            gameItem.itemManager = this
-        }
-
-        return itemNode
-    }
-
-    put(gameItemNode: cc.Node) {
-        this.itemPool.put(gameItemNode)
     }
 
     start() {
