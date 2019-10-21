@@ -12,18 +12,11 @@ import ItemNodePool from './ItemNodePool';
 
 const { ccclass, property } = cc._decorator;
 
-// 棋盘
+// 棋盘  x，y表示行，列
+// 行：从下往上；列：从左至右
+
 @ccclass
 export default class BoardView extends cc.Component {
-    // @property({type:cc.Prefab,displayName:"普通元素1"})
-    // gameItemPrefab: cc.Prefab = null
-    // @property({type:cc.Prefab,displayName:"普通元素2"})
-    // gameItemPrefab2: cc.Prefab = null
-    // @property({type:cc.Prefab,displayName:"普通元素3"})
-    // gameItemPrefab3: cc.Prefab = null
-    // @property({type:cc.Prefab,displayName:"普通元素4"})
-    // gameItemPrefab4: cc.Prefab = null
-
     @property(cc.Node)
     chessBoard: cc.Node = null
 
@@ -84,8 +77,8 @@ export default class BoardView extends cc.Component {
 
     onTouchStart(event:cc.Event.EventTouch){
         event.stopPropagation()
-        
-        console.log("touch start",this.convertToIndex(this.node.convertToNodeSpaceAR(event.getLocation())))
+        this.touchStartPos = this.convertToIndex(this.node.convertToNodeSpaceAR(event.getLocation()))
+        console.log("touch start",this.touchStartPos)
         //计算出触碰的第一个 并记录
 
         
@@ -93,18 +86,27 @@ export default class BoardView extends cc.Component {
 
     onTouchEnd(event:cc.Event.EventTouch){
         event.stopPropagation()
-        console.log("touch end",this.convertToIndex(this.node.convertToNodeSpaceAR(event.getLocation())))
+        this.touchEndPos = this.convertToIndex(this.node.convertToNodeSpaceAR(event.getLocation()))
+        console.log("touch end",this.touchEndPos)
+        
+
+        if(this.isAdjacent(this.touchStartPos,this.touchEndPos)){ //点击和弹起的元素相邻
+            console.log("swap")
+           this.itemModel.swap(this.touchStartPos,this.touchEndPos);
+        }else{
+            console.log("no swap")
+        }
     }
 
-    //
+    //x:行 y:列
     convertToIndex(touchPos:cc.Vec2){
-        return cc.v2(Math.floor(touchPos.x/this.itemWidth), Math.floor(touchPos.y/this.itemWidth))
-
+        return cc.v2(Math.floor(touchPos.y/this.itemWidth),Math.floor(touchPos.x/this.itemWidth))
     }
+
     // 判断开始和结束的两个元素是否相邻
     isAdjacent(posStart:cc.Vec2, posEnd:cc.Vec2){
         let ret = false
-        ret = (posStart.x == posEnd.x && Math.abs(posStart.y - posEnd.y) == 0) ||(posStart.y == posEnd.y && Math.abs(posStart.x - posEnd.x) == 0)
+        ret = (posStart.x == posEnd.x && Math.abs(posStart.y - posEnd.y) == 1) ||(posStart.y == posEnd.y && Math.abs(posStart.x - posEnd.x) == 1)
         return ret
     }
     // update (dt) {}

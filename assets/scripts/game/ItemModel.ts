@@ -6,6 +6,8 @@ class Data{
     node:cc.Node
 }
 
+const { ccclass, property } = cc._decorator;
+
 export default class ItemModel {
     view: BoardView //棋盘
     rowCount: number
@@ -34,6 +36,22 @@ export default class ItemModel {
                 this.dataTable[i][j].type = index
                 this.dataTable[i][j].node = node
             }
+        }
+    }
+
+    isValidIndex(index:cc.Vec2){
+        return index.x >= 0 && index.x < this.rowCount && index.y >=0 && index.y < this.colCount
+    }
+
+    swap(index1:cc.Vec2,index2:cc.Vec2){
+        if(this.isValidIndex(index1) && this.isValidIndex(index2)){
+            let tempData = this.dataTable[index1.x][index1.y]
+            this.dataTable[index1.x][index1.y] = this.dataTable[index2.x][index2.y]
+            this.dataTable[index2.x][index2.y] = tempData
+
+            let tempPos = this.dataTable[index2.x][index2.y].node.position
+            this.dataTable[index2.x][index2.y].node.setPosition(this.dataTable[index1.x][index1.y].node.getPosition())
+            this.dataTable[index1.x][index1.y].node.setPosition(tempPos)
         }
     }
 
