@@ -1,3 +1,4 @@
+import GameItem from './GameItem';
  class ItemNodePool {
 
     static GetInstance(){
@@ -37,6 +38,10 @@
             node = this.prefabPools[index].get(this.prefabPools[index])
         }else{
             node = cc.instantiate(this.prefabs[index])
+            let comp = node.getComponent("GameItem") as GameItem
+            if(comp){
+                comp._pool = this.prefabPools[index]
+            }
         }
 
         return node

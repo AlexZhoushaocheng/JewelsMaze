@@ -92,7 +92,7 @@ export default class BoardView extends cc.Component {
 
         if(this.isAdjacent(this.touchStartPos,this.touchEndPos)){ //点击和弹起的元素相邻
             console.log("swap")
-           this.itemModel.swap(this.touchStartPos,this.touchEndPos);
+           this.itemModel.swap(this.touchStartPos,this.touchEndPos,true);
         }else{
             console.log("no swap")
         }
