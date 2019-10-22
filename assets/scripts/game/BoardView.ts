@@ -22,6 +22,7 @@ export default class BoardView extends cc.Component {
 
     itemPool: cc.NodePool
 
+
     itemModel: ItemModel
 
     touchStartPos:cc.Vec2

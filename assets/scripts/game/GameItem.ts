@@ -1,4 +1,3 @@
-import { error } from '../../../creator';
 // Learn TypeScript:
 //  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/typescript.html
 //  - [English] http://www.cocos2d-x.org/docs/creator/manual/en/scripting/typescript.html
@@ -19,17 +18,18 @@ export default class GameItem extends cc.Component {
     }
 
     static ItemType = {
-        flash:"flash",      //累计能量后使用特殊道具
-        boom:"boom",        //消除后直接造成伤害
-        rainbow:"rainbow",  //万能百搭元素，只能搭配普通元素
-        Item1:"Item1",      //普通元素1
-        Item2:"Item2",      //普通元素2
-        Item3:"Item3",      //普通元素3
-        Item4:"Item4",      //普通元素4
+        Undefine:"Undefine",
+        ItemFlash:"ItemFlash",      //累计能量后使用特殊道具
+        ItemBoom:"ItemBoom",        //消除后直接造成伤害
+        ItemRainbow:"ItemRainbow",  //万能百搭元素，只能搭配普通元素
+        Item1:"Item1",          //普通元素1
+        Item2:"Item2",          //普通元素2
+        Item3:"Item3",          //普通元素3
+        Item4:"Item4",          //普通元素4
     }
 
-    @property({displayName:"",readonly:true,tooltip:""})
-    type:string
+    // @property({displayName:"类型",tooltip:"必须为GameItem.ItemType中的值"})
+    // type:string = ""
 
     _pool:cc.NodePool
     
