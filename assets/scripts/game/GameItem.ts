@@ -17,15 +17,16 @@ export default class GameItem extends cc.Component {
         ERASE : "ERASE"  //消除
     }
 
+    //static ItemTypeMask = 0000 0000 0011 1100
     static ItemType = {
-        Undefine:"Undefine",
-        ItemFlash:"ItemFlash",      //累计能量后使用特殊道具
-        ItemBoom:"ItemBoom",        //消除后直接造成伤害
-        ItemRainbow:"ItemRainbow",  //万能百搭元素，只能搭配普通元素
-        Item1:"Item1",          //普通元素1
-        Item2:"Item2",          //普通元素2
-        Item3:"Item3",          //普通元素3
-        Item4:"Item4",          //普通元素4
+        Undefine:{type:"Undefine",mask:0x0000},        //0x0000
+        ItemFlash:{type:"ItemFlash",mask:0x0001},      //累计能量后使用特殊道具 0x0001
+        ItemBoom:{type:"ItemBoom",mask:0x0002},        //消除后直接造成伤害 0x0002
+        ItemRainbow:{type:"ItemRainbow",mask:0x003c},  //万能百搭元素，只能搭配普通元素 0x003c
+        Item1:{type:"Item1",mask:0x0004},          //普通元素1 0x0004
+        Item2:{type:"Item2",mask:0x0008},          //普通元素2 0x0008
+        Item3:{type:"Item3",mask:0x0010},          //普通元素3 0x0010
+        Item4:{type:"Item4",mask:0x0020},          //普通元素4 0x0020
     }
 
     // @property({displayName:"类型",tooltip:"必须为GameItem.ItemType中的值"})

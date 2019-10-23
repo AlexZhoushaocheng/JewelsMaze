@@ -71,6 +71,12 @@ export default class BoardView extends cc.Component {
         this.itemHeighth = this.chessBoard.children[0].height
     }
 
+    // 在show()调用之后才能使用此函数
+    getPosition(row:number,col:number){
+        return cc.v2(this.itemWidth / 2, this.itemHeighth / 2).add(cc.v2(col * this.itemWidth, row * this.itemHeighth))
+    }
+
+    
     start() {
 
     }

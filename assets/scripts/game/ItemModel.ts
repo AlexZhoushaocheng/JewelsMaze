@@ -8,6 +8,7 @@ import GameItem from './GameItem';
 class Data {
     type: string //GameItem.ItemType
     node: cc.Node
+    mask: number
 }
 
 const { ccclass, property } = cc._decorator;
@@ -39,7 +40,13 @@ export default class ItemModel {
                 this.dataTable[i].push(new Data())
                 this.dataTable[i][j].type = type
                 this.dataTable[i][j].node = node
+                this.dataTable[i][j].mask = GameItem.ItemType[type].mask
             }
+        }
+        let erasable = this.checkAll()
+        if(erasable.length > 0)
+        {
+            console.log("init done, check all: ",erasable )
         }
     }
 
@@ -64,12 +71,26 @@ export default class ItemModel {
                 if (erasableItems.length <= 0) { //交换元素后未触发消除，则撤销该操作
                     this.swap(index1, index2, false)
                 } else {
-                    for (let item of erasableItems) {
-                        this.dataTable[item.x][item.y].node.emit(GameItem.EVENT.ERASE)
-                        this.dataTable[item.x][item.y].type = GameItem.ItemType.Undefine
-                    }
+                    do {
+                        //消除
+                        for (let item of erasableItems) {
+                            //UI中消除
+                            this.dataTable[item.x][item.y].node.emit(GameItem.EVENT.ERASE)
+
+                            //model中清除
+                            this.dataTable[item.x][item.y].type = GameItem.ItemType.Undefine.type
+                            this.dataTable[item.x][item.y].mask = GameItem.ItemType.Undefine.mask
+                            this.dataTable[item.x][item.y].node = null
+                        }
+
+                        //消除结束后降落
+                        this.fall()
+
+                        //降落后重新检查
+                        erasableItems = this.checkAll()
+                    } while (erasableItems.length > 0)
                 }
-                console.log(erasableItems)
+                console.log("可消除项：",erasableItems)
             }
         }
     }
@@ -79,77 +100,202 @@ export default class ItemModel {
         let retArr: cc.Vec2[] = []
         let tempArr: cc.Vec2[] = []
 
+        //横向检查
         for (let row = 0; row < this.rowCount; row++) {
             for (let col = 0; col < this.colCount; col++) {
                 if (tempArr.length > 0) {
-                    if (this.isSameType(cc.v2(row, col), tempArr[tempArr.length - 1])) { //如果当前的元素类型和暂存队列最后一个元素的类型相同，则将其加入暂存队列
+                    if (this.isSameType(cc.v2(row, col), tempArr)) { // 如果当前的元素类型和暂存队列所有元素的类型可消除，则将其加入暂存队列
                         tempArr.push(cc.v2(row, col))
-                    } else { //如果不同，则先判断暂存队列是否大于3个（即达到消除条件），达到则记录到结果队列中（retArr），
-                        if (tempArr.length >= 3) {
+                    } else { // 如果不同，则先判断暂存队列是否大于3个（即达到消除条件），达到则记录到结果队列中（retArr），
+                        
+                        //清空暂存
+                        if (tempArr.length >= 3) { //大于3可消除是可以清空暂存队列 TODO:如结尾时百搭元素应该检查后续元素和百搭元素组成的可消除长度，选择最长的可消除组合进行消除
                             retArr = retArr.concat(tempArr)
+                            tempArr = []
+                        }else{ // 如果不大于3，清空时应保留队尾的百搭元素 和 同类型元素
+                            let arr = tempArr
+                            tempArr = []
+                            for(let index = arr.length - 1; index>=0; index--){
+                                if(this.isSameType(cc.v2(row, col),cc.v2(arr[index].x,arr[index].y))){
+                                    tempArr.push(arr[index])
+                                }else{
+                                    break
+                                }
+                            }
                         }
-                        tempArr = []
+                        
+                        //清空后放入新元素
                         tempArr.push(cc.v2(row, col))
                     }
                 } else {
                     tempArr.push(cc.v2(row, col))
                 }
-            }
+            } // 检测完一行
+
             if (tempArr.length >= 3) {
                 retArr = retArr.concat(tempArr)
             }
             tempArr = []
         }
 
+        //纵向检查
         for (let col = 0; col < this.colCount; col++) {
             for (let row = 0; row < this.rowCount; row++) {
                 if (tempArr.length > 0) {
-                    if (this.isSameType(cc.v2(row, col), tempArr[tempArr.length - 1])) { //如果当前的元素类型和暂存队列最后一个元素的类型相同，则将其加入暂存队列
+                    if (this.isSameType(cc.v2(row, col), tempArr)) { //如果当前的元素类型和暂存队列所有元素的类型可消除，则将其加入暂存队列
                         tempArr.push(cc.v2(row, col))
                     } else { //如果不同，则先判断暂存队列是否大于3个（即达到消除条件），达到则记录到结果队列中（retArr），
-                        if (tempArr.length >= 3) {
+                        //清空暂存
+                        if (tempArr.length >= 3) { //大于3可消除是可以清空暂存队列
                             retArr = retArr.concat(tempArr)
+                            tempArr = []
+                        }else{ // 如果不大于3，清空时应保留队尾的百搭元素
+                            let arr = tempArr
+                            tempArr = []
+                            for(let index = arr.length - 1; index>=0; index--){
+                                if(this.isSameType(cc.v2(row, col),cc.v2(arr[index].x,arr[index].y))){
+                                    tempArr.push(arr[index])
+                                }else{
+                                    break
+                                }
+                            }
                         }
-                        tempArr = []
+
+                        //清空后放入新元素
                         tempArr.push(cc.v2(row, col))
                     }
                 } else {
                     tempArr.push(cc.v2(row, col))
                 }
-            }
+            } //检测完一列
+
             if (tempArr.length >= 3) {
                 retArr = retArr.concat(tempArr)
             }
             tempArr = []
         }
-        return this.distinct(retArr)
+        return this.distinct<cc.Vec2>(retArr,(v:cc.Vec2)=>{return v.toString()})
     }
 
-    //据说这个方法比set快
-    distinct(arr: cc.Vec2[]) {
-        let ret: cc.Vec2[] = []
+    getEmptyIndex(){
+        let arr:cc.Vec2[] =[]
+        for (let row =0; row < this.dataTable.length;row++){
+            for(let col = 0; col < this.dataTable[row].length; col++){
+                if(this.dataTable[row][col].type == GameItem.ItemType.Undefine.type){
+                    arr.push(cc.v2(row,col))
+                }
+            }
+        }
+
+        return arr
+    }
+
+    //使空白上方的元素落下
+    fall(){
+        //this.printDataTable()
+        let emptyIndexs = this.getEmptyIndex()
+        let nodeMap:Map<number,Array<Data>> = new Map<number,Array<Data>>() //存放每列新增的对象
+        for (let index of emptyIndexs){
+            let type = this._generateItem()
+            let data = new Data()
+            data.type = type
+            data.mask = GameItem.ItemType[type].mask
+            data.node = ItemNodePool.GetInstance().createItem(type)
+
+            if(nodeMap.has(index.y)){
+                nodeMap.get(index.y).push(data)
+            }else{
+                nodeMap.set(index.y,new Array<Data>())
+                nodeMap.get(index.y).push(data)
+            }
+        }
+
+        let emptyCount = 0 //元素下方的空格子数
+        nodeMap.forEach((value:Data[],key:number)=>{
+            let rowCount = this.dataTable.length
+
+            for(let row = 0; row < rowCount; row++){ //key 就是列索引
+                if(this.dataTable[row][key].type == GameItem.ItemType.Undefine.type){
+                    emptyCount++
+                }else if(emptyCount > 0){
+                    this.move(cc.v2(row,key),cc.v2(row - emptyCount,key))
+                }
+            }
+
+            for(let data of value){
+                this.put(data,cc.v2(rowCount -(emptyCount--),key))
+            }
+            emptyCount = 0
+        })
+
+        //this.printDataTable()
+    }
+
+    printDataTable(){
+        for(let row = this.dataTable.length -1; row >=0; row--){
+            let types = []
+            for(let data of this.dataTable[row]){
+                types.push(data.type)
+            }
+            console.log(types.join("\t"))
+        }
+    }
+
+    put(itemData:Data, to: cc.Vec2){
+        //model中数据移动
+        this.dataTable[to.x][to.y] = itemData
+
+        //添加到棋盘中
+        this.view.chessBoard.addChild(itemData.node)
+
+        //UI中位置移动 TODO：做成动画
+        this.dataTable[to.x][to.y].node.setPosition(this.view.getPosition(to.x,to.y))
+    }
+
+    //移动节点 from是棋盘上未被消除的元素，to是消除了的空格
+    move(from: cc.Vec2, to: cc.Vec2){
+        //model中数据移动
+        this.dataTable[to.x][to.y] = this.dataTable[from.x][from.y]
+
+        //UI中位置移动 TODO：做成动画
+        this.dataTable[to.x][to.y].node.setPosition(this.view.getPosition(to.x,to.y))
+    }
+
+    //去重 据说这个方法比set快
+    distinct<T>(arr:T[],feature:(v:T)=>string) {
+        let ret: T[] = []
         let obj = {}
+
         for (let node of arr) {
-            if (!obj[node.toString()]) {
+ 
+            if (!obj[feature(node)]) {
                 ret.push(node)
-                obj[node.toString()] = 1
+                obj[feature(node)] = 1
             }
         }
         return ret
     }
 
-    isSameType(index1: cc.Vec2, index2: cc.Vec2) {
-        let ret = false
-        let typeNode1 = this.dataTable[index1.x][index1.y].type
-        let typeNode2 = this.dataTable[index2.x][index2.y].type
-        if (this.isValidIndex(index1) && this.isValidIndex(index2)) {
-            ret = typeNode1 == typeNode2
-            if (!ret) {
-                ret = typeNode1 == GameItem.ItemType.ItemRainbow && (typeNode2 == GameItem.ItemType.Item1 ||typeNode2 == GameItem.ItemType.Item2 ||typeNode2 == GameItem.ItemType.Item3 ||typeNode2 == GameItem.ItemType.Item4) 
-                || typeNode2 == GameItem.ItemType.ItemRainbow && (typeNode1 == GameItem.ItemType.Item1 ||typeNode1 == GameItem.ItemType.Item2 ||typeNode1 == GameItem.ItemType.Item3 ||typeNode1 == GameItem.ItemType.Item4)
+    isSameType(index1: cc.Vec2, indexs: cc.Vec2):boolean;
+    isSameType(index1: cc.Vec2, indexs: cc.Vec2[]):boolean;
+
+    isSameType(index1: cc.Vec2, indexs:any):boolean {
+        let maskRet = this.dataTable[index1.x][index1.y].mask
+
+        if(indexs instanceof Array){
+            for(let index of (indexs as Array<cc.Vec2>)){
+                maskRet = maskRet & this.dataTable[index.x][index.y].mask
+                if(0 == maskRet){
+                    break
+                }
             }
+        }else{
+            let index = indexs as cc.Vec2
+            maskRet = maskRet & this.dataTable[index.x][index.y].mask
         }
-        return ret
+        
+        
+        return maskRet != 0
     }
 
     //TODO 删除此函数
@@ -219,7 +365,7 @@ export default class ItemModel {
         if (retArr.length > 0) { //如果结果不为空，中心的节点也放入结果中
             retArr.push(index)
         }
-        return
+        return retArr
     }
 
     //初始化过程中检查改坐标点不该出现的元素（如果出现会引起三个连续的同色）
@@ -229,6 +375,16 @@ export default class ItemModel {
             //if (this.dataTable[row - 1][col].type == this.dataTable[row - 2][col].type) {
             if (this.isSameType(cc.v2(row - 1,col),cc.v2(row - 2,col))) {
                 arr.push(this.dataTable[row - 1][col].type)
+                arr.push(this.dataTable[row - 2][col].type)
+                if((this.dataTable[row - 1][col].mask & GameItem.ItemType.ItemRainbow.mask) > 0){ //如果其中的元素和百搭元素可消除则把百搭元素添加到排除列表中
+                    arr.push(GameItem.ItemType.ItemRainbow.type)
+
+                    //如果两个元素都为百搭元素，则把普通元素都加到排除列表中
+                    if((this.dataTable[row - 2][col].type == GameItem.ItemType.ItemRainbow.type) && 
+                    (this.dataTable[row - 1][col].type == GameItem.ItemType.ItemRainbow.type)){ 
+                        arr.push(GameItem.ItemType.Item1.type,GameItem.ItemType.Item2.type,GameItem.ItemType.Item3.type,GameItem.ItemType.Item4.type)
+                    }
+                }
             }
         }
 
@@ -236,16 +392,28 @@ export default class ItemModel {
             //if (this.dataTable[row][col - 1].type == this.dataTable[row][col - 2].type) {
             if (this.isSameType(cc.v2(row,col-1),cc.v2(row,col-2))) {
                 arr.push(this.dataTable[row][col - 1].type)
+                arr.push(this.dataTable[row][col - 2].type)
+                if((this.dataTable[row][col - 2].mask & GameItem.ItemType.ItemRainbow.mask) > 0){ //如果其中的元素和百搭元素可消除则把百搭元素添加到排除列表中
+                    arr.push(GameItem.ItemType.ItemRainbow.type)
+
+                    //如果两个元素都为百搭元素，则把普通元素都加到排除列表中
+                    if((this.dataTable[row][col - 1].type == GameItem.ItemType.ItemRainbow.type) && 
+                    (this.dataTable[row][col - 2].type == GameItem.ItemType.ItemRainbow.type)){ 
+                        arr.push(GameItem.ItemType.Item1.type,GameItem.ItemType.Item2.type,GameItem.ItemType.Item3.type,GameItem.ItemType.Item4.type)
+                    }
+                }
             }
         }
-        return arr;
+        return this.distinct<string>(arr,(v:string)=>{return v});
     }
 
     //返回ItemEnum的一个索引；exclude 要排除的项
     _generateItem(exclude: string[] = []): string {
-        if (exclude.indexOf(GameItem.ItemType.Undefine) < 0) { //排除Undefine，即保证生成结果不会是Undefine
-            exclude.push(GameItem.ItemType.Undefine)
+        if (exclude.indexOf(GameItem.ItemType.Undefine.type) < 0) { //排除Undefine，即保证生成结果不会是Undefine
+            exclude.push(GameItem.ItemType.Undefine.type)
         }
+        exclude = this.distinct(exclude,(v)=>{return v}) //去重
+
         let arrLen = exclude.length
         let keys = Object.keys(GameItem.ItemType)
         let typeCount = keys.length
@@ -254,7 +422,7 @@ export default class ItemModel {
         let item = 0
         if (arrLen > 0) {
             for (let itemIndex = 0; itemIndex < typeCount; itemIndex++) {
-                if (exclude.indexOf(GameItem.ItemType[keys[itemIndex]]) >= 0) {
+                if (exclude.indexOf(GameItem.ItemType[keys[itemIndex]].type) >= 0) {
                     continue
                 }
 
@@ -269,7 +437,7 @@ export default class ItemModel {
         } else {
             item = v
         }
-
-        return GameItem.ItemType[keys[item]]
+        
+        return GameItem.ItemType[keys[item]].type
     }
 }

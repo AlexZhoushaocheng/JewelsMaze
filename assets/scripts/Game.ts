@@ -21,6 +21,12 @@ export default class Game extends cc.Component {
 
     // LIFE-CYCLE CALLBACKS:
 
+    static EVENT = {
+        SWAP:"SWAP"
+    }
+
+    
+
     onLoad () {}
 
     start () {
