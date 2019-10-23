@@ -1,6 +1,7 @@
 import BoardView from './BoardView';
 import ItemNodePool from './ItemNodePool';
 import GameItem from './GameItem';
+import EventRouter from '../common/EventRouter'
 
 //棋盘中的元素数据
 //type 类型
@@ -259,6 +260,8 @@ export default class ItemModel {
 
         //UI中位置移动 TODO：做成动画
         this.dataTable[to.x][to.y].node.setPosition(this.view.getPosition(to.x,to.y))
+
+        EventRouter.emit(GameItem.EVENT.MOVE)
     }
 
     //去重 据说这个方法比set快

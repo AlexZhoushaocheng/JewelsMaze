@@ -10,11 +10,14 @@
 
 const {ccclass, property} = cc._decorator;
 
+import EventRouter from '../common/EventRouter'
+
 @ccclass
 export default class GameItem extends cc.Component {
 
     static EVENT = {
-        ERASE : "ERASE"  //消除
+        ERASE : "ERASE",  //消除
+        MOVE : "MOVE" //移动
     }
 
     //static ItemTypeMask = 0000 0000 0011 1100
@@ -35,9 +38,15 @@ export default class GameItem extends cc.Component {
     _pool:cc.NodePool
     
     onLoad () {
-        this.node.on(GameItem.EVENT.ERASE,()=>{
-            this.onErase()
-        },this)
+        // this.node.on(GameItem.EVENT.ERASE,()=>{
+        //     this.onErase()
+        // },this)
+        this.node.on(GameItem.EVENT.ERASE,this.onErase,this)
+        EventRouter.register(GameItem.EVENT.MOVE,this.onMove,this)
+    }
+
+    onMove(){
+        console.log("move move move..")
     }
 
     start () {
