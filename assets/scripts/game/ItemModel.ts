@@ -1,7 +1,8 @@
 import BoardView from './BoardView';
 import ItemNodePool from './ItemNodePool';
 import GameItem from './GameItem';
-import EventRouter from '../common/EventRouter'
+import EventRouter from '../common/EventRouter';
+import { Enum } from '../../../creator';
 
 //棋盘中的元素数据
 //type 类型
@@ -12,14 +13,116 @@ class Data {
     mask: number
 }
 
-const { ccclass, property } = cc._decorator;
+
+enum ActionType {
+    UNDEFINE,
+    TRY_SWAP,
+    SWAP,
+    MOVE,
+    ERASE
+}
 
 export default class ItemModel {
+    
+    static EVENT = {
+        TRY_SWAP : "TRY_SWAP"
+    }
+
     view: BoardView //棋盘
     rowCount: number
     colCount: number
     itemNodePool: ItemNodePool
     dataTable: Array<Array<Data>> = []
+    lastAction:ActionType = ActionType.UNDEFINE
+
+    //待消除元素
+    itemEraseMap:Map<string,cc.Vec2> = new Map<string,cc.Vec2>()
+
+    //待移动元素 
+    itemMoveMap:Map<string,cc.Vec2> = new Map<string,cc.Vec2>()
+
+    //
+    swapTemp:cc.Vec2[] = []
+
+    //执行消除，消除itemEraseMap中的元素
+    doErase(){
+        this.itemEraseMap.forEach((index:cc.Vec2,uuid:string)=>{
+            this.dataTable[index.x][index.y].node.emit(GameItem.EVENT.ERASE)
+        })
+    }
+
+    //执行移动，移动itemMoveMap中的元素
+    doMove(){
+        this.itemMoveMap.forEach((index:cc.Vec2,uuid:string)=>{
+            this.dataTable[index.x][index.y].node.emit(GameItem.EVENT.MOVE,this.view.getPosition(index.x,index.y))
+        })
+    }
+
+    onOneMoveEnd(uuid:string){
+        if(this.itemMoveMap.has(uuid)){
+            this.itemMoveMap.delete(uuid)
+            if(this.itemMoveMap.size == 0){
+                //所有移动完成
+                let erasableItems = this.checkAll()
+
+
+                switch(this.lastAction){
+                    case ActionType.TRY_SWAP:
+                }
+            }
+        }else{
+            console.error("the uuid is not in itemMoveMap,",uuid)
+        }
+    }
+
+    onOneEraseEnd(uuid:string){
+        
+    }
+
+    onTrySwap(index1:cc.Vec2, index2:cc.Vec2){
+        if (this.isValidIndex(index1) && this.isValidIndex(index2)) {
+            let tempData = this.dataTable[index1.x][index1.y]
+            this.dataTable[index1.x][index1.y] = this.dataTable[index2.x][index2.y]
+            this.dataTable[index2.x][index2.y] = tempData
+
+            //TODO 使用动画在ui中交换位置
+            // let tempPos = this.dataTable[index2.x][index2.y].node.position
+            // this.dataTable[index2.x][index2.y].node.setPosition(this.dataTable[index1.x][index1.y].node.getPosition())
+            // this.dataTable[index1.x][index1.y].node.setPosition(tempPos)
+            this.itemMoveMap.set(this.dataTable[index2.x][index2.y].node.uuid,index1)
+            this.itemMoveMap.set(this.dataTable[index1.x][index1.y].node.uuid,index2)
+            this.lastAction = ActionType.TRY_SWAP
+
+            this.swapTemp.push(index1,index2)
+            this.doMove()
+
+            // let erasableItems = this.checkAll()
+            // if (erasableItems.length <= 0) { //交换元素后未触发消除，则撤销该操作
+            //     this.swap(index1, index2, false)
+            // } else {
+            //     do {
+            //         //消除
+            //         for (let item of erasableItems) {
+            //             //UI中消除
+            //             this.dataTable[item.x][item.y].node.emit(GameItem.EVENT.ERASE)
+
+            //             //model中清除
+            //             this.dataTable[item.x][item.y].type = GameItem.ItemType.Undefine.type
+            //             this.dataTable[item.x][item.y].mask = GameItem.ItemType.Undefine.mask
+            //             this.dataTable[item.x][item.y].node = null
+            //         }
+
+            //         //消除结束后降落
+            //         //this.fall()
+
+            //         //降落后重新检查
+            //         erasableItems = this.checkAll()
+            //     } while (erasableItems.length > 0)
+            // }
+            //console.log("可消除项：", erasableItems)
+            
+        }
+    }
 
     constructor(view: BoardView) {
         this.view = view
@@ -32,6 +135,10 @@ export default class ItemModel {
 
 
     init() {
+        EventRouter.register(GameItem.EVENT.ERASE_END,this.onOneEraseEnd,this)
+        EventRouter.register(GameItem.EVENT.MOVE_END,this.onOneMoveEnd,this)
+        EventRouter.register(ItemModel.EVENT.TRY_SWAP,this.onTrySwap,this)
+
         for (let i = 0; i < this.rowCount; i++) {
             this.dataTable.push([])
             for (let j = 0; j < this.colCount; j++) {
@@ -55,8 +162,9 @@ export default class ItemModel {
         return index.x >= 0 && index.x < this.rowCount && index.y >= 0 && index.y < this.colCount
     }
 
+
     //交换两个元素
-    swap(index1: cc.Vec2, index2: cc.Vec2, check: boolean) {
+    private swap(index1: cc.Vec2, index2: cc.Vec2, check: boolean) {
         if (this.isValidIndex(index1) && this.isValidIndex(index2)) {
             let tempData = this.dataTable[index1.x][index1.y]
             this.dataTable[index1.x][index1.y] = this.dataTable[index2.x][index2.y]
@@ -85,7 +193,7 @@ export default class ItemModel {
                         }
 
                         //消除结束后降落
-                        this.fall()
+                        //this.fall()
 
                         //降落后重新检查
                         erasableItems = this.checkAll()
@@ -97,7 +205,7 @@ export default class ItemModel {
     }
 
     //检测整个棋盘数据中的可消除项
-    checkAll() {
+    private checkAll() {
         let retArr: cc.Vec2[] = []
         let tempArr: cc.Vec2[] = []
 
@@ -178,7 +286,7 @@ export default class ItemModel {
         return this.distinct<cc.Vec2>(retArr,(v:cc.Vec2)=>{return v.toString()})
     }
 
-    getEmptyIndex(){
+    private getEmptyIndex(){
         let arr:cc.Vec2[] =[]
         for (let row =0; row < this.dataTable.length;row++){
             for(let col = 0; col < this.dataTable[row].length; col++){
@@ -192,7 +300,7 @@ export default class ItemModel {
     }
 
     //使空白上方的元素落下
-    fall(){
+    private fall(){
         //this.printDataTable()
         let emptyIndexs = this.getEmptyIndex()
         let nodeMap:Map<number,Array<Data>> = new Map<number,Array<Data>>() //存放每列新增的对象
@@ -242,7 +350,7 @@ export default class ItemModel {
         }
     }
 
-    put(itemData:Data, to: cc.Vec2){
+    private put(itemData:Data, to: cc.Vec2){
         //model中数据移动
         this.dataTable[to.x][to.y] = itemData
 
@@ -254,14 +362,15 @@ export default class ItemModel {
     }
 
     //移动节点 from是棋盘上未被消除的元素，to是消除了的空格
-    move(from: cc.Vec2, to: cc.Vec2){
+    private move(from: cc.Vec2, to: cc.Vec2){
         //model中数据移动
         this.dataTable[to.x][to.y] = this.dataTable[from.x][from.y]
 
         //UI中位置移动 TODO：做成动画
         this.dataTable[to.x][to.y].node.setPosition(this.view.getPosition(to.x,to.y))
 
-        EventRouter.emit(GameItem.EVENT.MOVE)
+        this.dataTable[to.x][to.y].node.emit(GameItem.EVENT.MOVE,this.view.getPosition(to.x,to.y))
+        //EventRouter.emit(GameItem.EVENT.MOVE)
     }
 
     //去重 据说这个方法比set快
@@ -372,7 +481,7 @@ export default class ItemModel {
     }
 
     //初始化过程中检查改坐标点不该出现的元素（如果出现会引起三个连续的同色）
-    getExclude(row: number, col: number): string[] {
+    private getExclude(row: number, col: number): string[] {
         let arr: string[] = []
         if (row > 1) {
             //if (this.dataTable[row - 1][col].type == this.dataTable[row - 2][col].type) {
@@ -411,7 +520,7 @@ export default class ItemModel {
     }
 
     //返回ItemEnum的一个索引；exclude 要排除的项
-    _generateItem(exclude: string[] = []): string {
+    private _generateItem(exclude: string[] = []): string {
         if (exclude.indexOf(GameItem.ItemType.Undefine.type) < 0) { //排除Undefine，即保证生成结果不会是Undefine
             exclude.push(GameItem.ItemType.Undefine.type)
         }

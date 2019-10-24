@@ -1,5 +1,6 @@
 import ItemModel from './ItemModel';
 import ItemNodePool from './ItemNodePool';
+import EventRouter from '../common/EventRouter';
 // Learn TypeScript:
 //  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/typescript.html
 //  - [English] http://www.cocos2d-x.org/docs/creator/manual/en/scripting/typescript.html
@@ -98,8 +99,9 @@ export default class BoardView extends cc.Component {
         
 
         if(this.isAdjacent(this.touchStartPos,this.touchEndPos)){ //点击和弹起的元素相邻
-            console.log("swap")
-           this.itemModel.swap(this.touchStartPos,this.touchEndPos,true);
+            console.log("try swap")
+           //this.itemModel.swap(this.touchStartPos,this.touchEndPos,true);
+            EventRouter.emit(ItemModel.EVENT.TRY_SWAP,this.touchStartPos,this.touchEndPos)
         }else{
             console.log("no swap")
         }

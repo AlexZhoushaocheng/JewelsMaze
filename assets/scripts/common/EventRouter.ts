@@ -1,3 +1,5 @@
+//事件广播，观察者
+
 class EventRouter{
 
     static node:cc.Node = new cc.Node()

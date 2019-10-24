@@ -10,14 +10,15 @@
 
 const {ccclass, property} = cc._decorator;
 
-import EventRouter from '../common/EventRouter'
+import EventRouter from '../common/EventRouter';
 
 @ccclass
 export default class GameItem extends cc.Component {
-
     static EVENT = {
-        ERASE : "ERASE",  //消除
-        MOVE : "MOVE" //移动
+        ERASE :         "ERASE",        //消除
+        ERASE_END :     "ERASE_END",    //消除结束
+        MOVE :          "MOVE",         //移动
+        MOVE_END :      "MOVE_END"      //移动结束
     }
 
     //static ItemTypeMask = 0000 0000 0011 1100
@@ -36,17 +37,47 @@ export default class GameItem extends cc.Component {
     // type:string = ""
 
     _pool:cc.NodePool
-    
+    anim:cc.Animation
+    animState:cc.AnimationState = null
+
     onLoad () {
-        // this.node.on(GameItem.EVENT.ERASE,()=>{
-        //     this.onErase()
-        // },this)
+        this.anim = this.getComponent(cc.Animation)
+        if(this.anim){
+            this.anim.on("finished",this.onEraseEnd,this)
+        }
+
         this.node.on(GameItem.EVENT.ERASE,this.onErase,this)
-        EventRouter.register(GameItem.EVENT.MOVE,this.onMove,this)
+        this.node.on(GameItem.EVENT.MOVE,this.onMove,this)
     }
 
-    onMove(){
-        console.log("move move move..")
+    //消失动画完成
+    onEraseEnd(){
+        if(this._pool){
+            this._pool.put(this.node)
+
+            EventRouter.emit(GameItem.EVENT.ERASE_END,this.node.uuid)
+        }else{
+            console.error("this is no valid NodePool in gameitem")
+        }
+    }
+
+    onMoveEnd(){
+        EventRouter.emit(GameItem.EVENT.MOVE_END,this.node.uuid)
+    }
+
+    onMove(pos:cc.Vec2){
+        let act = cc.moveTo(1,pos)
+        let finish = cc.callFunc(this.onMoveEnd,this)
+        let moveAction = cc.sequence(act,finish)
+        this.node.runAction(moveAction)
+        console.log("move move move..",pos.toString())
+    }
+
+    //消除，执行消失动画
+    onErase(finishCall?:()=>void){
+        if(!this.animState || !this.animState.isPlaying){
+            this.animState = this.anim.play()
+        }
     }
 
     start () {
@@ -68,15 +99,6 @@ export default class GameItem extends cc.Component {
         }
 
         //this._pool = pool
-    }
-
-    //被消除
-    onErase(){
-        if(this._pool){
-            this._pool.put(this.node)
-        }else{
-            console.error("this is no valid NodePool in gameitem")
-        }
     }
     // update (dt) {}
 }
