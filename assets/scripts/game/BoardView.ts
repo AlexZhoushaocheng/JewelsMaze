@@ -1,6 +1,7 @@
 import ItemModel from './ItemModel';
 import ItemNodePool from './ItemNodePool';
 import EventRouter from '../common/EventRouter';
+
 // Learn TypeScript:
 //  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/typescript.html
 //  - [English] http://www.cocos2d-x.org/docs/creator/manual/en/scripting/typescript.html
@@ -86,21 +87,18 @@ export default class BoardView extends cc.Component {
     onTouchStart(event:cc.Event.EventTouch){
         event.stopPropagation()
         this.touchStartPos = this.convertToIndex(this.node.convertToNodeSpaceAR(event.getLocation()))
-        console.log("touch start",this.touchStartPos)
-        //计算出触碰的第一个 并记录
-
-        
+        //console.log("touch start",this.touchStartPos)
+        //计算出触碰的第一个 并记录 
     }
 
     onTouchEnd(event:cc.Event.EventTouch){
         event.stopPropagation()
         this.touchEndPos = this.convertToIndex(this.node.convertToNodeSpaceAR(event.getLocation()))
-        console.log("touch end",this.touchEndPos)
+        //console.log("touch end",this.touchEndPos)
         
 
         if(this.isAdjacent(this.touchStartPos,this.touchEndPos)){ //点击和弹起的元素相邻
-            console.log("try swap")
-           //this.itemModel.swap(this.touchStartPos,this.touchEndPos,true);
+            //console.log("try swap")
             EventRouter.emit(ItemModel.EVENT.TRY_SWAP,this.touchStartPos,this.touchEndPos)
         }else{
             console.log("no swap")

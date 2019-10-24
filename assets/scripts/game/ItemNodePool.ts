@@ -6,7 +6,7 @@ class ItemPrefab{
 
    constructor(prefab:cc.Prefab){
         this.prefab = prefab
-        this.nodePool = new cc.NodePool() //TODO 是否要传参？
+        this.nodePool = new cc.NodePool("GameItem") //TODO 是否要传参？
    }
 }
 
@@ -83,31 +83,6 @@ class ItemNodePool {
 
         return node
     }
-
-    // createItem(index:number){
-    //     if(index<0 || index >= this.prefabs.length){
-    //         return null
-    //     }
-    //     let node:cc.Node
-    //     if(this.prefabPools[index].size() > 0){
-    //         node = this.prefabPools[index].get(this.prefabPools[index])
-    //     }else{
-    //         node = cc.instantiate(this.prefabs[index])
-    //         let comp = node.getComponent("GameItem") as GameItem
-    //         if(comp){
-    //             comp._pool = this.prefabPools[index]
-    //         }
-    //     }
-
-    //     return node
-    // }
-
-    // GetItemTypeCount(){
-    //     return Object.keys(GameItem.ItemType).length
-    // }
-
-    //prefabPools:Array<cc.NodePool>=[]
-    //prefabs:Array<cc.Prefab>=[]
 }
 
 export default ItemNodePool

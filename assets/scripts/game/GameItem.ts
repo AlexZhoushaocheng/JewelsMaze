@@ -21,7 +21,6 @@ export default class GameItem extends cc.Component {
         MOVE_END :      "MOVE_END"      //移动结束
     }
 
-    //static ItemTypeMask = 0000 0000 0011 1100
     static ItemType = {
         Undefine:{type:"Undefine",mask:0x0000},        //0x0000
         ItemFlash:{type:"ItemFlash",mask:0x0001},      //累计能量后使用特殊道具 0x0001
@@ -32,9 +31,6 @@ export default class GameItem extends cc.Component {
         Item3:{type:"Item3",mask:0x0010},          //普通元素3 0x0010
         Item4:{type:"Item4",mask:0x0020},          //普通元素4 0x0020
     }
-
-    // @property({displayName:"类型",tooltip:"必须为GameItem.ItemType中的值"})
-    // type:string = ""
 
     _pool:cc.NodePool
     anim:cc.Animation
@@ -66,11 +62,11 @@ export default class GameItem extends cc.Component {
     }
 
     onMove(pos:cc.Vec2){
-        let act = cc.moveTo(1,pos)
+        let act = cc.moveTo(0.4,pos)
         let finish = cc.callFunc(this.onMoveEnd,this)
         let moveAction = cc.sequence(act,finish)
         this.node.runAction(moveAction)
-        console.log("move move move..",pos.toString())
+        //console.log("move move move..",pos.toString())
     }
 
     //消除，执行消失动画

@@ -5,7 +5,7 @@ class EventRouter{
     static node:cc.Node = new cc.Node()
 
     static emit(type: string, arg1?: any, arg2?: any, arg3?: any, arg4?: any, arg5?: any){
-        this.node.emit(type)
+        this.node.emit(type,arg1,arg2,arg3,arg4,arg5)
     }
     static register<T extends Function>(type: string, callback: T, target?: any, useCapture?: boolean): T{
         return this.node.on(type,callback,target,useCapture)
