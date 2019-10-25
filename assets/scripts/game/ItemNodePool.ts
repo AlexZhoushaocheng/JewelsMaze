@@ -6,7 +6,7 @@ class ItemPrefab{
 
    constructor(prefab:cc.Prefab){
         this.prefab = prefab
-        this.nodePool = new cc.NodePool("GameItem") //TODO 是否要传参？
+        this.nodePool = new cc.NodePool("GameItem") //是否要传参？ 
    }
 }
 
@@ -71,6 +71,7 @@ class ItemNodePool {
         let prefab = this.prefabMap.get(type).prefab
         if(nodepool.size() > 0){
             node = nodepool.get(nodepool)
+            node.setScale(1) // 消失后的node被缩放了， 查了这么久。。。
         }else{
             node = cc.instantiate(prefab)
             let comp = node.getComponent("GameItem") as GameItem

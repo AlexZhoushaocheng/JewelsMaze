@@ -81,7 +81,7 @@ export default class ItemModel {
                         this.itemEraseMap.set(this.dataTable[item.x][item.y].node.uuid,item)
                     }
                     this.doErase()
-                }else if(this.bSwapBack){ //如果不能消除 swapTemp 中有数据，主动移动后没有可以消除的元素，则此次操作无效，恢复
+                }else if(this.bSwapBack){ //如果上次操作是尝试交换两个元素，那么
                     this.bSwapBack = false
                     this.swap(this.swapTemp[0],this.swapTemp[1])
                 }
@@ -95,7 +95,7 @@ export default class ItemModel {
         if(this.itemEraseMap.has(uuid)){
             this.itemEraseMap.delete(uuid)
             if(this.itemEraseMap.size == 0){ //所有消除动作完成
-                console.log("Erase finished")
+                //console.log("Erase finished")
                 this.fall()
             }
         }
@@ -154,7 +154,7 @@ export default class ItemModel {
             this.dataTable[index1.x][index1.y] = this.dataTable[index2.x][index2.y]
             this.dataTable[index2.x][index2.y] = tempData
 
-            //TODO 使用动画在ui中交换位置
+            //使用动画在ui中交换位置
             this.itemMoveMap.set(this.dataTable[index2.x][index2.y].node.uuid,index1)
             this.itemMoveMap.set(this.dataTable[index1.x][index1.y].node.uuid,index2)
             this.lastAction = ActionType.TRY_SWAP
