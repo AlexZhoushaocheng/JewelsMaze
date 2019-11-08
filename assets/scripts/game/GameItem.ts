@@ -57,6 +57,7 @@ export default class GameItem extends cc.Component {
         }
     }
 
+    //移动动画完成
     onMoveEnd(){
         EventRouter.emit(GameItem.EVENT.MOVE_END,this.node.uuid)
     }

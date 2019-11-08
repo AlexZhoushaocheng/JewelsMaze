@@ -11,6 +11,7 @@ class EventRouter{
         return this.node.on(type,callback,target,useCapture)
     }
 
+    
 }
 
 export default EventRouter

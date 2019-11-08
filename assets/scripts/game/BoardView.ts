@@ -46,12 +46,12 @@ export default class BoardView extends cc.Component {
         })
     }
 
-    loadDone(){
+    loadDone() {
         this.itemModel.init()
         this.show()
     }
 
-    show(){
+    show() {
         let row = 0
         let col = 0
         for (let arr of this.itemModel.dataTable) {
@@ -74,7 +74,7 @@ export default class BoardView extends cc.Component {
     }
 
     // 在show()调用之后才能使用此函数
-    getPosition(row:number,col:number){
+    getPosition(row:number,col:number) {
         return cc.v2(this.itemWidth / 2, this.itemHeighth / 2).add(cc.v2(col * this.itemWidth, row * this.itemHeighth))
     }
 
@@ -96,6 +96,10 @@ export default class BoardView extends cc.Component {
         this.touchEndPos = this.convertToIndex(this.node.convertToNodeSpaceAR(event.getLocation()))
         //console.log("touch end",this.touchEndPos)
         
+        if(!this.itemModel.isPlayerTurn)
+        {
+            console.log("还不是我的回合")
+        }
 
         if(this.isAdjacent(this.touchStartPos,this.touchEndPos)){ //点击和弹起的元素相邻
             //console.log("try swap")

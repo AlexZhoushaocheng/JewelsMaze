@@ -2,6 +2,8 @@ import BoardView from './BoardView';
 import ItemNodePool from './ItemNodePool';
 import GameItem from './GameItem';
 import EventRouter from '../common/EventRouter';
+import Robot from '../Robot';
+import Player from '../Player';
 
 //棋盘中的元素数据
 //type 类型
@@ -20,6 +22,7 @@ enum ActionType {
     MOVE,
     ERASE
 }
+const MaxChairCount = 2
 
 export default class ItemModel {
     
@@ -34,6 +37,11 @@ export default class ItemModel {
     dataTable: Array<Array<Data>> = []
     lastAction:ActionType = ActionType.UNDEFINE
 
+    isPlayerTurn:boolean = true
+
+    player:Player
+    robot:Player
+
     //待消除元素
     itemEraseMap:Map<string,cc.Vec2> = new Map<string,cc.Vec2>()
 
@@ -46,8 +54,28 @@ export default class ItemModel {
     //
     swapTemp:cc.Vec2[] = []
 
+    //连续消除计数
+    continuousEraseCount:number = 0
+    
+    //此次被消除元素的数量
+    eraseItemCount:number = 0
+
+    changeTurn(){
+        this.isPlayerTurn = !this.isPlayerTurn
+
+        if(! this.isPlayerTurn){//机器人回合
+            
+
+        }else{//玩家回合
+            //TODO 提示玩家可以行动了
+        }
+    }
+
     //执行消除，消除itemEraseMap中的元素
     doErase(){
+        this.eraseItemCount = this.itemEraseMap.size
+        this.eraseItemCount++
+        
         this.itemEraseMap.forEach((index:cc.Vec2,uuid:string)=>{
             this.dataTable[index.x][index.y].node.emit(GameItem.EVENT.ERASE)
 
@@ -64,6 +92,12 @@ export default class ItemModel {
         this.itemMoveMap.forEach((index:cc.Vec2,uuid:string)=>{
             this.dataTable[index.x][index.y].node.emit(GameItem.EVENT.MOVE,this.view.getPosition(index.x,index.y))
         })
+    }
+
+    findErasable():Array<Array<cc.Vec2>>{
+        let ret = Array<Array<cc.Vec2>>()
+
+        return ret
     }
 
     onOneMoveEnd(uuid:string){
@@ -84,6 +118,13 @@ export default class ItemModel {
                 }else if(this.bSwapBack){ //如果上次操作是尝试交换两个元素，那么
                     this.bSwapBack = false
                     this.swap(this.swapTemp[0],this.swapTemp[1])
+                }else{ //判断是否让当前玩家继续行动
+                    if(this.continuousEraseCount >=2 || this.eraseItemCount > 3){
+                        //TODO 提示可以继续行动
+                        console.log("你可以继续行动")
+                    }else{
+                        this.changeTurn()
+                    }
                 }
             }
         }else{
@@ -93,15 +134,27 @@ export default class ItemModel {
 
     onOneEraseEnd(uuid:string){
         if(this.itemEraseMap.has(uuid)){
+            //被消除的元素记录到对应的玩家
+            let index:cc.Vec2 = this.itemEraseMap[uuid]
+            if(this.isPlayerTurn){
+                this.player.items[this.dataTable[index.x][index.y].type] += 1
+            }else{
+                this.robot.items[this.dataTable[index.x][index.y].type] += 1
+            }
+
+            //TODO 跟新能量变化数据到客户端
+
             this.itemEraseMap.delete(uuid)
             if(this.itemEraseMap.size == 0){ //所有消除动作完成
-                //console.log("Erase finished")
                 this.fall()
             }
         }
     }
 
+    //玩家行动后
     onTrySwap(index1:cc.Vec2, index2:cc.Vec2){
+        this.eraseItemCount = 0;
+
         this.bSwapBack =true
         this.swap(index1,index2)
     }
@@ -113,6 +166,8 @@ export default class ItemModel {
         this.colCount = 7
 
         this.itemNodePool = ItemNodePool.GetInstance()
+        this.player = new Player(this)
+        this.robot = new Player(this)
     }
 
 
@@ -137,6 +192,15 @@ export default class ItemModel {
         if(erasable.length > 0)
         {
             console.log("fuck !!!! ERROR!!! init done, check all: ",erasable )
+        }
+
+        this.isPlayerTurn = true;
+    }
+
+    //游戏开始
+    gameStart(){
+        if(this.isPlayerTurn){
+            //TODO 提示玩家可以行动， 时钟开始计时
         }
     }
 
