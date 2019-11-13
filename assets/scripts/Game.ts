@@ -21,6 +21,33 @@ export default class Game extends cc.Component {
 
     // LIFE-CYCLE CALLBACKS:
 
+    
+    //玩家1 元素显示
+    @property(cc.Label)
+    player1Item1:cc.Label = null
+
+    @property(cc.Label)
+    player1Item2:cc.Label = null
+
+    @property(cc.Label)
+    player1Item3:cc.Label = null
+
+    @property(cc.Label)
+    player1Item4:cc.Label = null
+
+    //玩家2 元素显示
+    @property(cc.Label)
+    player2Item1:cc.Label = null
+
+    @property(cc.Label)
+    player2Item2:cc.Label = null
+
+    @property(cc.Label)
+    player2Item3:cc.Label = null
+
+    @property(cc.Label)
+    player2Item4:cc.Label = null
+    
     static EVENT = {
         SWAP:"SWAP"
     }

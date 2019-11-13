@@ -1,0 +1,616 @@
+(function() {"use strict";var __module = CC_EDITOR ? module : {exports:{}};var __filename = 'preview-scripts/assets/scripts/game/ItemModel.js';var __require = CC_EDITOR ? function (request) {return cc.require(request, require);} : function (request) {return cc.require(request, __filename);};function __define (exports, require, module) {"use strict";
+cc._RF.push(module, 'a7e82YKUUpORZ0NZANiga7T', 'ItemModel', __filename);
+// scripts/game/ItemModel.ts
+
+Object.defineProperty(exports, "__esModule", { value: true });
+var ItemNodePool_1 = require("./ItemNodePool");
+var GameItem_1 = require("./GameItem");
+var EventRouter_1 = require("../common/EventRouter");
+var Player_1 = require("../Player");
+//棋盘中的元素数据
+//type 类型
+//node 节点
+var Data = /** @class */ (function () {
+    function Data() {
+    }
+    return Data;
+}());
+var PosPair = /** @class */ (function () {
+    function PosPair(pos1, pos2) {
+        this.posX = pos1;
+        this.posY = pos2;
+    }
+    return PosPair;
+}());
+var ActionType;
+(function (ActionType) {
+    ActionType[ActionType["UNDEFINE"] = 0] = "UNDEFINE";
+    ActionType[ActionType["TRY_SWAP"] = 1] = "TRY_SWAP";
+    ActionType[ActionType["SWAP"] = 2] = "SWAP";
+    ActionType[ActionType["MOVE"] = 3] = "MOVE";
+    ActionType[ActionType["ERASE"] = 4] = "ERASE";
+})(ActionType || (ActionType = {}));
+var MaxChairCount = 2;
+var ItemModel = /** @class */ (function () {
+    function ItemModel(view) {
+        this.dataTable = [];
+        this.lastAction = ActionType.UNDEFINE;
+        this.isPlayerTurn = true;
+        //待消除元素
+        this.itemEraseMap = new Map();
+        //待移动元素 
+        this.itemMoveMap = new Map();
+        //移动完成后是否检查表，移动无效时进行恢复时无需检查
+        this.bSwapBack = false;
+        //
+        this.swapTemp = [];
+        //连续消除计数
+        this.continuousEraseCount = 0;
+        //此次被消除元素的数量
+        this.eraseItemCount = 0;
+        this.view = view;
+        this.rowCount = 6;
+        this.colCount = 7;
+        this.itemNodePool = ItemNodePool_1.default.GetInstance();
+        this.player = new Player_1.default(this);
+        this.robot = new Player_1.default(this);
+    }
+    ItemModel.prototype.changeTurn = function () {
+        this.isPlayerTurn = !this.isPlayerTurn;
+        if (!this.isPlayerTurn) { //机器人回合
+            console.log("robot trun");
+            var pairs = this.findErasable();
+            // TODO 找一个最优的，也就是结果中重复的次数最多的
+            if (pairs.length > 0) {
+                //随机取
+                var index = Math.round(pairs.length * Math.random());
+                console.log("robot Move");
+                this.onTrySwap(pairs[index].posX, pairs[index].posY);
+            }
+            else {
+                //没有可以移动消除的元素，重新初始化棋盘
+                console.log("没有可以移动后消除的选项");
+            }
+        }
+        else { //玩家回合
+            console.log("player trun");
+            //TODO 提示玩家可以行动了
+        }
+    };
+    //执行消除，消除itemEraseMap中的元素
+    ItemModel.prototype.doErase = function () {
+        var _this = this;
+        this.itemEraseMap.forEach(function (index, uuid) {
+            _this.eraseItemCount++;
+            _this.dataTable[index.x][index.y].node.emit(GameItem_1.default.EVENT.ERASE);
+            //model中清除
+            _this.dataTable[index.x][index.y].type = GameItem_1.default.ItemType.Undefine.type;
+            _this.dataTable[index.x][index.y].mask = GameItem_1.default.ItemType.Undefine.mask;
+            _this.dataTable[index.x][index.y].node = null;
+        });
+    };
+    //执行移动，移动itemMoveMap中的元素
+    ItemModel.prototype.doMove = function () {
+        var _this = this;
+        //console.log("do move")
+        this.itemMoveMap.forEach(function (index, uuid) {
+            _this.dataTable[index.x][index.y].node.emit(GameItem_1.default.EVENT.MOVE, _this.view.getPosition(index.x, index.y));
+        });
+    };
+    //上
+    ItemModel.prototype.posUp = function (pos) { return pos.add(cc.v2(1, 0)); };
+    //左
+    ItemModel.prototype.posLeft = function (pos) { return pos.add(cc.v2(0, -1)); };
+    //右
+    ItemModel.prototype.posRight = function (pos) { return pos.add(cc.v2(0, 1)); };
+    //下
+    ItemModel.prototype.posDown = function (pos) { return pos.add(cc.v2(-1, 0)); };
+    //左上
+    ItemModel.prototype.posLU = function (pos) { return pos.add(cc.v2(1, -1)); };
+    //右上
+    ItemModel.prototype.posRU = function (pos) { return pos.add(cc.v2(1, 1)); };
+    //左下
+    ItemModel.prototype.posLD = function (pos) { return pos.add(cc.v2(-1, -1)); };
+    //右下
+    ItemModel.prototype.posRD = function (pos) { return pos.add(cc.v2(-1, 1)); };
+    ItemModel.prototype.findErasable = function () {
+        var allRet = [];
+        //let sameTypeArr:Array<cc.Vec2> = []
+        for (var row = 0; row < this.rowCount; row++) {
+            for (var col = 0; col < this.colCount; col++) { //12种情况
+                var posM = cc.v2(row, col);
+                /******** 1表示相同的类型，0表示随意类型 1
+                * 010
+                * 101
+                ********/
+                if (this.isSameType(posM, this.posLD(posM), this.posRD(posM))) {
+                    allRet.push(new PosPair(posM, this.posDown(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 2
+                * 101
+                * 010
+                ********/
+                if (this.isSameType(posM, this.posLU(posM), this.posRU(posM))) {
+                    allRet.push(new PosPair(posM, this.posUp(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 3
+                    * 010
+                    * 100
+                    * 010
+                    ********/
+                if (this.isSameType(posM, this.posRD(posM), this.posRU(posM))) {
+                    allRet.push(new PosPair(posM, this.posRight(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 4
+                    * 010
+                    * 001
+                    * 010
+                    ********/
+                if (this.isSameType(posM, this.posLU(posM), this.posLD(posM))) {
+                    allRet.push(new PosPair(posM, this.posLeft(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 5
+                    * 110
+                    * 001
+                    ********/
+                if (this.isSameType(posM, this.posLeft(posM), this.posRD(posM))) {
+                    allRet.push(new PosPair(this.posRD(posM), this.posRight(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 6
+                    * 001
+                    * 110
+                    ********/
+                if (this.isSameType(posM, this.posLeft(posM), this.posRU(posM))) {
+                    allRet.push(new PosPair(this.posRU(posM), this.posRight(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 7
+                    * 100
+                    * 011
+                    ********/
+                if (this.isSameType(posM, this.posRight(posM), this.posLU(posM))) {
+                    allRet.push(new PosPair(this.posLU(posM), this.posLeft(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 8
+                    * 011
+                    * 100
+                    ********/
+                if (this.isSameType(posM, this.posLD(posM), this.posRight(posM))) {
+                    allRet.push(new PosPair(this.posLD(posM), this.posLeft(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 9
+                    * 010
+                    * 010
+                    * 100
+                    ********/
+                if (this.isSameType(posM, this.posLD(posM), this.posUp(posM))) {
+                    allRet.push(new PosPair(this.posLD(posM), this.posDown(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 10
+                    * 010
+                    * 010
+                    * 001
+                    ********/
+                if (this.isSameType(posM, this.posRD(posM), this.posUp(posM))) {
+                    allRet.push(new PosPair(this.posRD(posM), this.posDown(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 11
+                    * 100
+                    * 010
+                    * 010
+                    ********/
+                if (this.isSameType(posM, this.posLU(posM), this.posDown(posM))) {
+                    allRet.push(new PosPair(this.posLU(posM), this.posUp(posM)));
+                }
+                /******** 1表示相同的类型，0表示随意类型 12
+                    * 001
+                    * 010
+                    * 010
+                    ********/
+                if (this.isSameType(posM, this.posDown(posM), this.posRU(posM))) {
+                    allRet.push(new PosPair(this.posRU(posM), this.posUp(posM)));
+                }
+            }
+        }
+        return allRet;
+    };
+    //
+    ItemModel.prototype.onOneMoveEnd = function (uuid) {
+        if (this.itemMoveMap.has(uuid)) {
+            this.itemMoveMap.delete(uuid);
+            if (this.itemMoveMap.size == 0) {
+                //所有移动完成
+                var erasableItems = this.checkAll();
+                if (erasableItems.length > 0) { //可以消除
+                    this.bSwapBack = false;
+                    for (var _i = 0, erasableItems_1 = erasableItems; _i < erasableItems_1.length; _i++) {
+                        var item = erasableItems_1[_i];
+                        //UI中消除
+                        this.itemEraseMap.set(this.dataTable[item.x][item.y].node.uuid, item);
+                    }
+                    this.doErase();
+                }
+                else if (this.bSwapBack) { //如果上次操作是尝试交换两个元素，那么
+                    this.bSwapBack = false;
+                    this.swap(this.swapTemp[0], this.swapTemp[1]);
+                }
+                else { //判断是否让当前玩家继续行动
+                    if (this.continuousEraseCount >= 2 || this.eraseItemCount > 3) {
+                        //TODO 提示可以继续行动
+                        console.log("你可以继续行动");
+                    }
+                    else {
+                        this.changeTurn();
+                    }
+                }
+            }
+        }
+        else {
+            console.error("the uuid is not in itemMoveMap,", uuid);
+        }
+    };
+    //
+    ItemModel.prototype.onOneEraseEnd = function (uuid) {
+        if (this.itemEraseMap.has(uuid)) {
+            //被消除的元素记录到对应的玩家
+            var index = this.itemEraseMap.get(uuid);
+            if (this.isPlayerTurn) {
+                this.player.items[this.dataTable[index.x][index.y].type] += 1;
+            }
+            else {
+                this.robot.items[this.dataTable[index.x][index.y].type] += 1;
+            }
+            //TODO 跟新能量变化数据到客户端
+            this.itemEraseMap.delete(uuid);
+            if (this.itemEraseMap.size == 0) { //所有消除动作完成
+                this.fall();
+            }
+        }
+    };
+    //玩家行动后
+    ItemModel.prototype.onTrySwap = function (index1, index2) {
+        this.eraseItemCount = 0;
+        this.bSwapBack = true;
+        this.swap(index1, index2);
+    };
+    ItemModel.prototype.init = function () {
+        EventRouter_1.default.register(GameItem_1.default.EVENT.ERASE_END, this.onOneEraseEnd, this);
+        EventRouter_1.default.register(GameItem_1.default.EVENT.MOVE_END, this.onOneMoveEnd, this);
+        EventRouter_1.default.register(ItemModel.EVENT.TRY_SWAP, this.onTrySwap, this);
+        for (var i = 0; i < this.rowCount; i++) {
+            this.dataTable.push([]);
+            for (var j = 0; j < this.colCount; j++) {
+                var exclude = this.getExclude(i, j);
+                var type = this._generateItem(exclude);
+                var node = this.itemNodePool.createItem(type);
+                this.dataTable[i].push(new Data());
+                this.dataTable[i][j].type = type;
+                this.dataTable[i][j].node = node;
+                this.dataTable[i][j].mask = GameItem_1.default.ItemType[type].mask;
+            }
+        }
+        var erasable = this.checkAll();
+        if (erasable.length > 0) {
+            console.log("fuck !!!! ERROR!!! init done, check all: ", erasable);
+        }
+        this.isPlayerTurn = true;
+    };
+    //游戏开始
+    ItemModel.prototype.gameStart = function () {
+        if (this.isPlayerTurn) {
+            //TODO 提示玩家可以行动， 时钟开始计时
+        }
+    };
+    ItemModel.prototype.isValidIndex = function (index) {
+        return index.x >= 0 && index.x < this.rowCount && index.y >= 0 && index.y < this.colCount;
+    };
+    //交换两个元素
+    ItemModel.prototype.swap = function (index1, index2) {
+        this.swapTemp = [];
+        if (this.isValidIndex(index1) && this.isValidIndex(index2)) {
+            var tempData = this.dataTable[index1.x][index1.y];
+            this.dataTable[index1.x][index1.y] = this.dataTable[index2.x][index2.y];
+            this.dataTable[index2.x][index2.y] = tempData;
+            //使用动画在ui中交换位置
+            this.itemMoveMap.set(this.dataTable[index2.x][index2.y].node.uuid, index1);
+            this.itemMoveMap.set(this.dataTable[index1.x][index1.y].node.uuid, index2);
+            this.lastAction = ActionType.TRY_SWAP;
+            this.swapTemp.push(index1, index2);
+            this.doMove();
+        }
+    };
+    //检测整个棋盘数据中的可消除项
+    ItemModel.prototype.checkAll = function () {
+        var retArr = [];
+        var tempArr = [];
+        //横向检查
+        for (var row = 0; row < this.rowCount; row++) {
+            for (var col = 0; col < this.colCount; col++) {
+                if (tempArr.length > 0) {
+                    if (this.isSameType(cc.v2(row, col), tempArr)) { // 如果当前的元素类型和暂存队列所有元素的类型可消除，则将其加入暂存队列
+                        tempArr.push(cc.v2(row, col));
+                    }
+                    else { // 如果不同，则先判断暂存队列是否大于3个（即达到消除条件），达到则记录到结果队列中（retArr），
+                        //清空暂存
+                        if (tempArr.length >= 3) { //大于3可消除是可以清空暂存队列 TODO:如结尾时百搭元素应该检查后续元素和百搭元素组成的可消除长度，选择最长的可消除组合进行消除
+                            retArr = retArr.concat(tempArr);
+                            tempArr = [];
+                        }
+                        else { // 如果不大于3，清空时应保留队尾的百搭元素 和 同类型元素
+                            var arr = tempArr;
+                            tempArr = [];
+                            for (var index = arr.length - 1; index >= 0; index--) {
+                                if (this.isSameType(cc.v2(row, col), cc.v2(arr[index].x, arr[index].y))) {
+                                    tempArr.push(arr[index]);
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+                        }
+                        //清空后放入新元素
+                        tempArr.push(cc.v2(row, col));
+                    }
+                }
+                else {
+                    tempArr.push(cc.v2(row, col));
+                }
+            } // 检测完一行
+            if (tempArr.length >= 3) {
+                retArr = retArr.concat(tempArr);
+            }
+            tempArr = [];
+        }
+        //纵向检查
+        for (var col = 0; col < this.colCount; col++) {
+            for (var row = 0; row < this.rowCount; row++) {
+                if (tempArr.length > 0) {
+                    if (this.isSameType(cc.v2(row, col), tempArr)) { //如果当前的元素类型和暂存队列所有元素的类型可消除，则将其加入暂存队列
+                        tempArr.push(cc.v2(row, col));
+                    }
+                    else { //如果不同，则先判断暂存队列是否大于3个（即达到消除条件），达到则记录到结果队列中（retArr），
+                        //清空暂存
+                        if (tempArr.length >= 3) { //大于3可消除是可以清空暂存队列
+                            retArr = retArr.concat(tempArr);
+                            tempArr = [];
+                        }
+                        else { // 如果不大于3，清空时应保留队尾的百搭元素
+                            var arr = tempArr;
+                            tempArr = [];
+                            for (var index = arr.length - 1; index >= 0; index--) {
+                                if (this.isSameType(cc.v2(row, col), cc.v2(arr[index].x, arr[index].y))) {
+                                    tempArr.push(arr[index]);
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+                        }
+                        //清空后放入新元素
+                        tempArr.push(cc.v2(row, col));
+                    }
+                }
+                else {
+                    tempArr.push(cc.v2(row, col));
+                }
+            } //检测完一列
+            if (tempArr.length >= 3) {
+                retArr = retArr.concat(tempArr);
+            }
+            tempArr = [];
+        }
+        return this.distinct(retArr, function (v) { return v.toString(); });
+    };
+    ItemModel.prototype.getEmptyIndex = function () {
+        var arr = [];
+        for (var row = 0; row < this.dataTable.length; row++) {
+            for (var col = 0; col < this.dataTable[row].length; col++) {
+                if (this.dataTable[row][col].type == GameItem_1.default.ItemType.Undefine.type) {
+                    arr.push(cc.v2(row, col));
+                }
+            }
+        }
+        return arr;
+    };
+    //使空白上方的元素落下
+    ItemModel.prototype.fall = function () {
+        var _this = this;
+        //this.printDataTable()
+        var emptyIndexs = this.getEmptyIndex();
+        var nodeMap = new Map(); //存放每列新增的对象
+        for (var _i = 0, emptyIndexs_1 = emptyIndexs; _i < emptyIndexs_1.length; _i++) {
+            var index = emptyIndexs_1[_i];
+            var type = this._generateItem();
+            var data = new Data();
+            data.type = type;
+            data.mask = GameItem_1.default.ItemType[type].mask;
+            data.node = ItemNodePool_1.default.GetInstance().createItem(type);
+            if (nodeMap.has(index.y)) {
+                nodeMap.get(index.y).push(data);
+            }
+            else {
+                nodeMap.set(index.y, new Array());
+                nodeMap.get(index.y).push(data);
+            }
+        }
+        var emptyCount = 0; //元素下方的空格子数
+        nodeMap.forEach(function (value, key) {
+            var rowCount = _this.dataTable.length;
+            for (var row = 0; row < rowCount; row++) { //key 就是列索引
+                if (_this.dataTable[row][key].type == GameItem_1.default.ItemType.Undefine.type) {
+                    emptyCount++;
+                }
+                else if (emptyCount > 0) {
+                    _this.move(cc.v2(row, key), cc.v2(row - emptyCount, key));
+                }
+            }
+            var count = emptyCount;
+            for (var _i = 0, value_1 = value; _i < value_1.length; _i++) { //value 是一列新增的元素
+                var data = value_1[_i];
+                var from = cc.v2(rowCount + (emptyCount - (count)), key);
+                var to = cc.v2(rowCount - (count--), key);
+                //初始化位置
+                //data.node.setPosition()
+                if (!data.node) {
+                    console.log("BIG ERROR");
+                }
+                //UI中位置移动 
+                _this.put(data, from, to);
+            }
+            emptyCount = 0;
+        });
+        //this.printDataTable()
+        this.doMove();
+    };
+    ItemModel.prototype.printDataTable = function () {
+        for (var row = this.dataTable.length - 1; row >= 0; row--) {
+            var types = [];
+            for (var _i = 0, _a = this.dataTable[row]; _i < _a.length; _i++) {
+                var data = _a[_i];
+                types.push(data.type);
+            }
+            console.log(types.join("\t"));
+        }
+    };
+    ItemModel.prototype.put = function (itemData, from, to) {
+        //console.log("put ", itemData.type,"from ",from.toString(), " to ", to.toString())
+        //model中数据移动
+        this.dataTable[to.x][to.y] = itemData;
+        //添加到棋盘中
+        this.view.chessBoard.addChild(itemData.node);
+        //初始化位置
+        itemData.node.setPosition(this.view.getPosition(from.x, from.y));
+        //UI中位置移动,加入移动队列
+        this.itemMoveMap.set(itemData.node.uuid, to);
+    };
+    //移动节点 from是棋盘上未被消除的元素，to是消除了的空格
+    ItemModel.prototype.move = function (from, to) {
+        // console.log("move from ", from.toString() ," to ", to.toString())
+        //model中数据移动
+        this.dataTable[to.x][to.y] = this.dataTable[from.x][from.y];
+        //UI中位置移动,加入移动队列
+        this.itemMoveMap.set(this.dataTable[to.x][to.y].node.uuid, to);
+    };
+    //去重 据说这个方法比set快 feature取元素的特征值，即唯一值。
+    ItemModel.prototype.distinct = function (arr, feature) {
+        var ret = [];
+        var obj = {};
+        for (var _i = 0, arr_1 = arr; _i < arr_1.length; _i++) {
+            var node = arr_1[_i];
+            if (!obj[feature(node)]) {
+                ret.push(node);
+                obj[feature(node)] = 1;
+            }
+        }
+        return ret;
+    };
+    ItemModel.prototype.isSameType = function (index1, index2, index3) {
+        var maskRet = this.dataTable[index1.x][index1.y].mask;
+        if (index2 instanceof Array) {
+            for (var _i = 0, _a = index2; _i < _a.length; _i++) {
+                var index = _a[_i];
+                maskRet = maskRet & this.dataTable[index.x][index.y].mask;
+                if (0 == maskRet) {
+                    break;
+                }
+            }
+        }
+        else if (!index3) {
+            var index = index2;
+            maskRet = maskRet & this.dataTable[index.x][index.y].mask;
+        }
+        else {
+            if (this.isValidIndex(index1) && this.isValidIndex(index2) && this.isValidIndex(index3)) {
+                maskRet = (maskRet & this.dataTable[index2.x][index2.y].mask) == 0 || (maskRet & this.dataTable[index3.x][index3.y].mask) == 0 ? 0 : 1;
+            }
+            else {
+                maskRet = 0;
+            }
+        }
+        return maskRet != 0;
+    };
+    //初始化过程中检查改坐标点不该出现的元素（如果出现会引起三个连续的同色）
+    ItemModel.prototype.getExclude = function (row, col) {
+        var arr = [];
+        if (row > 1) {
+            //if (this.dataTable[row - 1][col].type == this.dataTable[row - 2][col].type) {
+            if (this.isSameType(cc.v2(row - 1, col), cc.v2(row - 2, col))) {
+                arr.push(this.dataTable[row - 1][col].type);
+                arr.push(this.dataTable[row - 2][col].type);
+                if ((this.dataTable[row - 1][col].mask & GameItem_1.default.ItemType.ItemRainbow.mask) > 0) { //如果其中的元素和百搭元素可消除则把百搭元素添加到排除列表中
+                    arr.push(GameItem_1.default.ItemType.ItemRainbow.type);
+                    //如果两个元素都为百搭元素，则把普通元素都加到排除列表中
+                    if ((this.dataTable[row - 2][col].type == GameItem_1.default.ItemType.ItemRainbow.type) &&
+                        (this.dataTable[row - 1][col].type == GameItem_1.default.ItemType.ItemRainbow.type)) {
+                        arr.push(GameItem_1.default.ItemType.Item1.type, GameItem_1.default.ItemType.Item2.type, GameItem_1.default.ItemType.Item3.type, GameItem_1.default.ItemType.Item4.type);
+                    }
+                }
+            }
+        }
+        if (col > 1) {
+            //if (this.dataTable[row][col - 1].type == this.dataTable[row][col - 2].type) {
+            if (this.isSameType(cc.v2(row, col - 1), cc.v2(row, col - 2))) {
+                arr.push(this.dataTable[row][col - 1].type);
+                arr.push(this.dataTable[row][col - 2].type);
+                if ((this.dataTable[row][col - 2].mask & GameItem_1.default.ItemType.ItemRainbow.mask) > 0) { //如果其中的元素和百搭元素可消除则把百搭元素添加到排除列表中
+                    arr.push(GameItem_1.default.ItemType.ItemRainbow.type);
+                    //如果两个元素都为百搭元素，则把普通元素都加到排除列表中
+                    if ((this.dataTable[row][col - 1].type == GameItem_1.default.ItemType.ItemRainbow.type) &&
+                        (this.dataTable[row][col - 2].type == GameItem_1.default.ItemType.ItemRainbow.type)) {
+                        arr.push(GameItem_1.default.ItemType.Item1.type, GameItem_1.default.ItemType.Item2.type, GameItem_1.default.ItemType.Item3.type, GameItem_1.default.ItemType.Item4.type);
+                    }
+                }
+            }
+        }
+        return this.distinct(arr, function (v) { return v; });
+    };
+    //返回ItemEnum的一个索引；exclude 要排除的项
+    ItemModel.prototype._generateItem = function (exclude) {
+        if (exclude === void 0) { exclude = []; }
+        if (exclude.indexOf(GameItem_1.default.ItemType.Undefine.type) < 0) { //排除Undefine，即保证生成结果不会是Undefine
+            exclude.push(GameItem_1.default.ItemType.Undefine.type);
+        }
+        exclude = this.distinct(exclude, function (v) { return v; }); //去重
+        var arrLen = exclude.length;
+        var keys = Object.keys(GameItem_1.default.ItemType);
+        var typeCount = keys.length;
+        var v = Math.floor(Math.random() * (typeCount - arrLen)); // 
+        var item = 0;
+        if (arrLen > 0) {
+            for (var itemIndex = 0; itemIndex < typeCount; itemIndex++) {
+                if (exclude.indexOf(GameItem_1.default.ItemType[keys[itemIndex]].type) >= 0) {
+                    continue;
+                }
+                if (item == v) {
+                    item = itemIndex;
+                    break;
+                }
+                else {
+                    item++;
+                }
+            }
+        }
+        else {
+            item = v;
+        }
+        return GameItem_1.default.ItemType[keys[item]].type;
+    };
+    ItemModel.EVENT = {
+        TRY_SWAP: "TRY_SWAP"
+    };
+    return ItemModel;
+}());
+exports.default = ItemModel;
+
+cc._RF.pop();
+        }
+        if (CC_EDITOR) {
+            __define(__module.exports, __require, __module);
+        }
+        else {
+            cc.registerModuleFunc(__filename, function () {
+                __define(__module.exports, __require, __module);
+            });
+        }
+        })();
+        //# sourceMappingURL=ItemModel.js.map
+        

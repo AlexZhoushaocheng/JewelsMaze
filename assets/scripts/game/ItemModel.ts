@@ -95,8 +95,8 @@ export default class ItemModel {
             if(pairs.length > 0 )
             {
                 //随机取
-                let index = Math.round(pairs.length * Math.random())
-                console.log("robot Move")
+                let index = Math.floor(pairs.length * Math.random())
+                console.log("robot Move length",index)
                 this.onTrySwap(pairs[index].posX,pairs[index].posY)
             }else{
                 //没有可以移动消除的元素，重新初始化棋盘
@@ -672,8 +672,10 @@ export default class ItemModel {
             let index = index2 as cc.Vec2
             maskRet = maskRet & this.dataTable[index.x][index.y].mask
         } else {
-            if (this.isValidIndex(index1) && this.isValidIndex(index2) && this.isValidIndex(index2)) {
+            if (this.isValidIndex(index1) && this.isValidIndex(index2) && this.isValidIndex(index3)) {
                 maskRet = (maskRet & this.dataTable[index2.x][index2.y].mask) == 0 || (maskRet & this.dataTable[index3.x][index3.y].mask) == 0 ? 0 : 1
+            }else{
+                maskRet = 0
             }
         }
 
