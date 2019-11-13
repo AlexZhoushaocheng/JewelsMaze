@@ -24,11 +24,10 @@ class PosPair {
 }
 
 enum ActionType {
-    UNDEFINE,
-    TRY_SWAP,
-    SWAP,
-    MOVE,
-    ERASE
+    TRY_SWAP,  //手动移动
+    SWAP,       //手动移动后无可消除，被还原
+    AUTO_MOVE,  //消除后降落
+    CLEAR       //清空
 }
 const MaxChairCount = 2
 
@@ -43,12 +42,14 @@ export default class ItemModel {
     colCount: number
     itemNodePool: ItemNodePool
     dataTable: Array<Array<Data>> = []
-    lastAction: ActionType = ActionType.UNDEFINE
+    lastAction: ActionType
 
     isPlayerTurn: boolean = true
 
     player: Player
     robot: Player
+
+    currentAllMovable: Array<PosPair>
 
     //待消除元素
     itemEraseMap: Map<string, cc.Vec2> = new Map<string, cc.Vec2>()
@@ -56,8 +57,8 @@ export default class ItemModel {
     //待移动元素 
     itemMoveMap: Map<string, cc.Vec2> = new Map<string, cc.Vec2>()
 
-    //移动完成后是否检查表，移动无效时进行恢复时无需检查
-    bSwapBack = false
+    //是否为手动移动，玩家点击后移动属于手动移动，降落属于自动自动
+    //bManual:boolean
 
     //
     swapTemp: cc.Vec2[] = []
@@ -73,7 +74,23 @@ export default class ItemModel {
 
         if (!this.isPlayerTurn) {//机器人回合
             console.log("robot trun")
-            let pairs =  this.findErasable()
+            this.robotAction()
+        } else {//玩家回合
+            console.log("player trun")
+            //TODO 提示玩家可以行动了
+        }
+    }
+
+    //检查是否有可消除，没有就重新初始化
+    checkRebuild(){
+        let pairs =  this.findErasable()
+        if(0 == pairs.length){
+
+        }
+    }
+
+    robotAction(){
+        let pairs =  this.findErasable()
             // TODO 找一个最优的，也就是结果中重复的次数最多的
             if(pairs.length > 0 )
             {
@@ -85,10 +102,6 @@ export default class ItemModel {
                 //没有可以移动消除的元素，重新初始化棋盘
                 console.log("没有可以移动后消除的选项")
             }
-        } else {//玩家回合
-            console.log("player trun")
-            //TODO 提示玩家可以行动了
-        }
     }
 
     //执行消除，消除itemEraseMap中的元素
@@ -244,27 +257,46 @@ export default class ItemModel {
     onOneMoveEnd(uuid: string) {
         if (this.itemMoveMap.has(uuid)) {
             this.itemMoveMap.delete(uuid)
-            if (this.itemMoveMap.size == 0) {
-                //所有移动完成
+
+            if (this.itemMoveMap.size == 0) {//所有移动完成
+
+                if(ActionType.SWAP == this.lastAction){
+                    console.log("移动无效，请重新操作")
+                    return
+                }
+
                 let erasableItems = this.checkAll()
 
                 if (erasableItems.length > 0) { //可以消除
-                    this.bSwapBack = false
 
                     for (let item of erasableItems) {
                         //UI中消除
                         this.itemEraseMap.set(this.dataTable[item.x][item.y].node.uuid, item)
                     }
                     this.doErase()
-                } else if (this.bSwapBack) { //如果上次操作是尝试交换两个元素，那么
-                    this.bSwapBack = false
-                    this.swap(this.swapTemp[0], this.swapTemp[1])
-                } else { //判断是否让当前玩家继续行动
-                    if (this.continuousEraseCount >= 2 || this.eraseItemCount > 3) {
-                        //TODO 提示可以继续行动
-                        console.log("你可以继续行动")
-                    } else {
-                        this.changeTurn()
+                } else {
+                    if (ActionType.TRY_SWAP == this.lastAction) { //如果上次操作是尝试交换两个元素，那么可以还原
+                        this.swap(this.swapTemp[0], this.swapTemp[1])
+                    } else if(ActionType.AUTO_MOVE == this.lastAction){ //判断是否让当前玩家继续行动
+                        //检查是否有可移动消除的元素，没有则重新初始化棋盘
+
+                        this.currentAllMovable = this.findErasable()
+                        if(this.currentAllMovable.length == 0){
+                            this.clear()
+                            return
+                        }
+
+                        if (this.continuousEraseCount > 2 || this.eraseItemCount > 5) {
+                            //TODO 提示可以继续行动
+                            if(this.isPlayerTurn){
+                                console.log("玩家可以继续行动")
+                            }else{
+                                console.log("机器人可以继续行动")
+                                this.robotAction()
+                            }
+                        } else {
+                            this.changeTurn()
+                        }
                     }
                 }
             }
@@ -278,17 +310,41 @@ export default class ItemModel {
         if (this.itemEraseMap.has(uuid)) {
             //被消除的元素记录到对应的玩家
             let index: cc.Vec2 = this.itemEraseMap.get(uuid)
-            if (this.isPlayerTurn) {
-                this.player.items[this.dataTable[index.x][index.y].type] += 1
-            } else {
-                this.robot.items[this.dataTable[index.x][index.y].type] += 1
+            if(ActionType.CLEAR != this.lastAction) {
+                if (this.isPlayerTurn) {
+                    this.player.items[this.dataTable[index.x][index.y].type] += 1
+                } else {
+                    this.robot.items[this.dataTable[index.x][index.y].type] += 1
+                }
             }
 
             //TODO 跟新能量变化数据到客户端
 
             this.itemEraseMap.delete(uuid)
             if (this.itemEraseMap.size == 0) { //所有消除动作完成
-                this.fall()
+
+                if(ActionType.CLEAR == this.lastAction){
+                    console.log("移动无效，请重新操作")
+
+                    this.build()
+                    this.view.show()
+
+                    if (this.continuousEraseCount > 2 || this.eraseItemCount > 5) {
+                        //TODO 提示可以继续行动
+                        if(this.isPlayerTurn){
+                            console.log("玩家可以继续行动")
+                        }else{
+                            console.log("机器人可以继续行动")
+                            this.robotAction()
+                        }
+                    } else {
+                        this.changeTurn()
+                    }
+                    
+                    return
+                }else{
+                    this.fall()
+                }
             }
         }
     }
@@ -297,7 +353,7 @@ export default class ItemModel {
     onTrySwap(index1: cc.Vec2, index2: cc.Vec2) {
         this.eraseItemCount = 0;
 
-        this.bSwapBack = true
+        this.lastAction = ActionType.TRY_SWAP
         this.swap(index1, index2)
     }
 
@@ -312,12 +368,18 @@ export default class ItemModel {
         this.robot = new Player(this)
     }
 
+    clear(){
+        for (let i = 0; i < this.rowCount; i++) {
+            for (let j = 0; j < this.colCount; j++) {
+                this.dataTable[i][j].node.emit(GameItem.EVENT.ERASE)
+            }
+        }
 
-    init() {
-        EventRouter.register(GameItem.EVENT.ERASE_END, this.onOneEraseEnd, this)
-        EventRouter.register(GameItem.EVENT.MOVE_END, this.onOneMoveEnd, this)
-        EventRouter.register(ItemModel.EVENT.TRY_SWAP, this.onTrySwap, this)
+        this.dataTable = []
+    }
 
+    build(){
+        //build
         for (let i = 0; i < this.rowCount; i++) {
             this.dataTable.push([])
             for (let j = 0; j < this.colCount; j++) {
@@ -330,6 +392,23 @@ export default class ItemModel {
                 this.dataTable[i][j].mask = GameItem.ItemType[type].mask
             }
         }
+
+
+        if(this.findErasable().length == 0){ //rebuild
+            console.log("rebuild......")
+            this.build()
+        }else{ //createItem
+
+        }
+    }
+
+    init() {
+        EventRouter.register(GameItem.EVENT.ERASE_END, this.onOneEraseEnd, this)
+        EventRouter.register(GameItem.EVENT.MOVE_END, this.onOneMoveEnd, this)
+        EventRouter.register(ItemModel.EVENT.TRY_SWAP, this.onTrySwap, this)
+
+        this.build()
+
         let erasable = this.checkAll()
         if (erasable.length > 0) {
             console.log("fuck !!!! ERROR!!! init done, check all: ", erasable)
@@ -362,7 +441,7 @@ export default class ItemModel {
             //使用动画在ui中交换位置
             this.itemMoveMap.set(this.dataTable[index2.x][index2.y].node.uuid, index1)
             this.itemMoveMap.set(this.dataTable[index1.x][index1.y].node.uuid, index2)
-            this.lastAction = ActionType.TRY_SWAP
+            this.lastAction = ActionType.SWAP
 
             this.swapTemp.push(index1, index2)
             this.doMove()
@@ -468,6 +547,11 @@ export default class ItemModel {
     private fall() {
         //this.printDataTable()
         let emptyIndexs = this.getEmptyIndex()
+        if(emptyIndexs.length >0 ){
+            this.lastAction = ActionType.AUTO_MOVE
+        }else{
+            console.error("big error： 没有可下落的元素！！！")
+        }
         let nodeMap: Map<number, Array<Data>> = new Map<number, Array<Data>>() //存放每列新增的对象
         for (let index of emptyIndexs) {
             let type = this._generateItem()
