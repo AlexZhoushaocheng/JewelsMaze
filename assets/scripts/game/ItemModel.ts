@@ -312,9 +312,9 @@ export default class ItemModel {
             let index: cc.Vec2 = this.itemEraseMap.get(uuid)
             if(ActionType.CLEAR != this.lastAction) {
                 if (this.isPlayerTurn) {
-                    this.player.items[this.dataTable[index.x][index.y].type] += 1
+                    this.player.addItem(this.dataTable[index.x][index.y].type,1)
                 } else {
-                    this.robot.items[this.dataTable[index.x][index.y].type] += 1
+                    this.robot.addItem(this.dataTable[index.x][index.y].type,1)
                 }
             }
 
@@ -364,8 +364,8 @@ export default class ItemModel {
         this.colCount = 7
 
         this.itemNodePool = ItemNodePool.GetInstance()
-        this.player = new Player(this)
-        this.robot = new Player(this)
+        this.player = new Player()
+        this.robot = new Player()
     }
 
     clear(){

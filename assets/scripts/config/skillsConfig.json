@@ -16,8 +16,8 @@
         },
         {
             "id":"1",
-            "name":"切",
-            "description":"流血，使对手每回合减少一点生命，持续5回合",
+            "name":"击",
+            "description":"直接造成5点伤害",
             "reduce":{
                 "Item1":1,
                 "Item2":1,
